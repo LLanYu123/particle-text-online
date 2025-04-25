@@ -1,12 +1,10 @@
+// --- 获取 HTML 元素 ---
 const canvas = document.getElementById('particleCanvas');
 const ctx = canvas.getContext('2d'); // 获取 2D 绘图上下文
 const textInput = document.getElementById('textInput');
 const updateButton = document.getElementById('updateButton');
 
 // --- 基本配置 (可以后续从 VortexConfiguration 移植或直接定义) ---
-// --- 调试开关 ---
-const DEBUG_DRAW_TARGETS_ONLY = false; 
-// 设置为 true 只绘制目标点，不启动动画
 const config = {
     numParticles: 5000,
     particleMaxSpeed: 4.5,
@@ -18,9 +16,9 @@ const config = {
     particleMinSize: 1,
     particleMaxSize: 2.5,
     fontSize: 160, // 初始字体大小，会被文本长度调整
-    fontFamily: 'sans-serif', // 字体栈
+    fontFamily: '"sans-serif', // 字体栈
     trailAlpha: 0.1, // 拖尾效果透明度 (0-1)
-    defaultText: "AAA",
+    defaultText: "请输入",
     textSamplingDensity: 2, // 文本采样密度 (值越小点越多)
     brightnessDistanceFactor: 150,
     minBrightness: 40, // HSL 亮度 %
@@ -77,38 +75,67 @@ console.log("粒子脚本已加载");
        }
 
        // 更新粒子状态（核心物理逻辑）
-   // 在 Particle 类的 update 方法内部
-   update(hue, center) {
-       const dx = this.target.x - this.x;
-       const dy = this.target.y - this.y;
-       const distSq = dx * dx + dy * dy;
-       const dist = (distSq > 1) ? Math.sqrt(distSq) : 1;
+       update() {
+           // --- 计算到目标点的向量和距离 ---
+           const dx = this.target.x - this.x;
+           const dy = this.target.y - this.y;
+           const distSq = dx * dx + dy * dy; // 用平方距离避免开方，提高性能
+           const dist = (distSq > 1) ? Math.sqrt(distSq) : 1; // 避免除以零
 
-       const forceMagnitude = dist * config.attractionForce * 0.1;
-       const forceX = (dx / dist) * forceMagnitude;
-       const forceY = (dy / dist) * forceMagnitude;
+           // --- 计算吸引力 ---
+           // 力的大小可以与距离成正比（或者其他函数），这里简单处理
+           const forceMagnitude = dist * config.attractionForce * 0.1; // 调整系数控制强度
+           // 分解力到 x 和 y 方向
+           const forceX = (dx / dist) * forceMagnitude;
+           const forceY = (dy / dist) * forceMagnitude;
+           // 更新速度
+           this.vx += forceX;
+           this.vy += forceY;
 
-       // *** 临时简化：只应用吸引力 ***
-       this.vx = forceX; // 直接设置速度，而不是累加
-       this.vy = forceY;
+           // --- 计算漩涡力 (如果启用) ---
+           if (config.swirlForce > 0) {
+               const dxCenter = this.x - centerX;
+               const dyCenter = this.y - centerY;
+               const distCenterSq = dxCenter * dxCenter + dyCenter * dyCenter;
+               if (distCenterSq > 1) { // 避免在中心点计算
+                   const distCenter = Math.sqrt(distCenterSq);
+                   // 施加一个垂直于中心向量的力来实现旋转
+                   const swirlAccX = -dyCenter / distCenter * config.swirlForce;
+                   const swirlAccY = dxCenter / distCenter * config.swirlForce;
+                   this.vx += swirlAccX;
+                   this.vy += swirlAccY;
+               }
+           }
 
-       /* // 注释掉其他力、阻尼和速度限制
-       if (config.swirlForce > 0) { ... }
-       this.vx *= config.damping;
-       this.vy *= config.damping;
-       const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-       if (speed > config.particleMaxSpeed) { ... }
-       else if (config.particleMinSpeed > 0 && speed < config.particleMinSpeed && distSq < 10000) { ... }
-       */
+           // --- 应用阻尼 (空气摩擦力) ---
+           this.vx *= config.damping;
+           this.vy *= config.damping;
 
-       this.x += this.vx;
-       this.y += this.vy;
+           // --- 速度限制 ---
+           const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+           if (speed > config.particleMaxSpeed) {
+               this.vx = (this.vx / speed) * config.particleMaxSpeed;
+               this.vy = (this.vy / speed) * config.particleMaxSpeed;
+           } else if (config.particleMinSpeed > 0 && speed < config.particleMinSpeed && distSq < 10000) { // 距离目标近时应用最小速度
+               if (speed > 0.01) {
+                   this.vx = (this.vx / speed) * config.particleMinSpeed;
+                   this.vy = (this.vy / speed) * config.particleMinSpeed;
+               } else if (distSq > 1) { // 如果静止但没到目标点，给个随机推力
+                   this.vx = (Math.random() - 0.5) * config.particleMinSpeed;
+                   this.vy = (Math.random() - 0.5) * config.particleMinSpeed;
+               }
+           }
 
-       // 颜色更新保留
-       const brightnessFactor = Math.max(config.minBrightness, config.maxBrightness - (dist / config.brightnessDistanceFactor));
-       const brightness = Math.min(config.maxBrightness, brightnessFactor);
-       this.color = `hsl(${currentHue % 360}, ${config.saturation}%, ${brightness}%)`;
-   }
+           // --- 更新位置 ---
+           this.x += this.vx;
+           this.y += this.vy;
+
+           // --- 更新颜色 (基于全局色调和距离) ---
+           const brightnessFactor = Math.max(config.minBrightness, config.maxBrightness - (dist / config.brightnessDistanceFactor));
+           const brightness = Math.min(config.maxBrightness, brightnessFactor); // 限制亮度范围
+           this.color = `hsl(${currentHue % 360}, ${config.saturation}%, ${brightness}%)`;
+       }
+
        // 绘制粒子到画布
        draw() {
            ctx.fillStyle = this.color;
@@ -179,7 +206,6 @@ console.log("粒子脚本已加载");
         console.log("[Debug] Temporary canvas added to page for inspection.");
         */
         // --- [调试步骤 结束] ---
-
        // --- 步骤 4: 获取像素数据 ---
        if (canvasWidth <= 0 || canvasHeight <= 0) {
            console.warn("[getTextPoints] Calculated canvas width or height is zero, cannot sample.");
@@ -249,59 +275,31 @@ console.log("粒子脚本已加载");
 	     console.log("resetParticles function defined.");
 	  
 	     // --- 更新文本目标并重置粒子 ---
-   // --- 更新文本目标并重置粒子 (包含调试模式) ---
-   function updateTextTarget() {
-       const text = textInput.value || config.defaultText;
-       if (!text) {
-           console.warn("输入文本为空，跳过更新。");
-           targetPoints = [];
-           particles = [];
-           // 如果文本为空，清空画布
-           if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-           return;
-       }
-
-       // --- 动态调整字体大小 (可选) ---
-       let dynamicFontSize = config.fontSize;
-       if (text.length > 6) {
-           dynamicFontSize = Math.max(80, config.fontSize - (text.length - 6) * 10);
-       } else if (text.length < 3) {
-           dynamicFontSize = Math.min(220, config.fontSize + (3 - text.length) * 15);
-       }
-
-       // 获取目标点
-       targetPoints = getTextPoints(text, dynamicFontSize);
-
-       // --- 调试代码块 ---
-       if (DEBUG_DRAW_TARGETS_ONLY) {
-           console.log("[调试模式] 只绘制目标点。");
-           // 先用纯黑色清空主画布，方便观察
-           ctx.fillStyle = '#000000';
-           ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-           // 设置一个醒目的颜色来画目标点
-           ctx.fillStyle = '#FF0000'; // 亮红色
-
-           // 遍历所有目标点，并为每个点绘制一个小方块（或圆点）
-           if (targetPoints && targetPoints.length > 0) {
-               targetPoints.forEach(point => {
-                   // 画一个 1x1 或 2x2 像素的点
-                   ctx.fillRect(Math.floor(point.x), Math.floor(point.y), 1, 1);
-               });
-               console.log(`[调试模式] 绘制了 ${targetPoints.length} 个红色目标点。`);
-           } else {
-               console.log("[调试模式] 没有可绘制的目标点。");
-           }
-           // *** 重要：在调试模式下，不重置粒子，也不启动动画 ***
-           particles = []; // 清空粒子数组，避免残留影响
-           return; // 提前结束函数，不进入 resetParticles
-       }
-       // --- 调试代码块结束 ---
-
-       // 如果不是调试模式，正常继续：
-       resetParticles(); // 只有在非调试模式下才重置粒子
-   }
-   // console.log("updateTextTarget function defined."); // 日志可保留或删除
+	     function updateTextTarget() {
+	         const text = textInput.value || config.defaultText; // 获取输入框文本或默认文本
+	          if (!text) {
+	              console.warn("Input text is empty, skipping update.");
+	              targetPoints = []; // 清空目标点
+	              particles = []; // 清空粒子
+	              return;
+	          }
+	  
+	          // --- 动态调整字体大小 (可选，基于文本长度) ---
+	          let dynamicFontSize = config.fontSize;
+	          // 简单示例：如果文字太多，稍微缩小字体
+	          if (text.length > 6) {
+	              dynamicFontSize = Math.max(80, config.fontSize - (text.length - 6) * 10); // 最小80
+	          } else if (text.length < 3) {
+	               dynamicFontSize = Math.min(220, config.fontSize + (3 - text.length) * 15); // 最大220
+	          }
+	  
+	  
+	         // 获取新的目标点
+	         targetPoints = getTextPoints(text, dynamicFontSize);
+	         // 重置粒子以适应新的目标点
+	         resetParticles();
+	     }
+	     console.log("updateTextTarget function defined.");
 		 
 		    // --- 动画循环 ---
 		    function animate() {
@@ -339,50 +337,12 @@ console.log("粒子脚本已加载");
 			       }
 			   });
 			
-    // --- 初始启动 (使用 Font Loading API 确保字体就绪) ---
-    async function initializeAndRun() {
-        console.log("Setting up initial state...");
-        // 设置初始画布大小
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        centerX = canvas.width / 2;
-        centerY = canvas.height / 2;
-        console.log(`Initial Canvas size set to: ${canvas.width}x${canvas.height}`);
- 
-        // 构建 CSS font 字符串用于检查 (需要与 config 匹配)
-        const fontStyleString = config.fontStyle === 1 ? 'bold ' : (config.fontStyle === 2 ? 'italic ' : '');
-        const fontToLoad = `${fontStyleString}${config.fontSize}px ${config.fontFamily}`;
- 
-        try {
-            console.log(`Attempting to load font: ${fontToLoad}`);
-            // *** 使用 Font Loading API 等待字体加载 ***
-            // document.fonts.load 会返回一个 Promise，表示字体加载过程
-            await document.fonts.load(fontToLoad);
-            // 如果上面的 await 没有抛出错误，说明字体（或其后备）已准备好使用
-            console.log("Font loading complete (or browser fallback ready).");
- 
-        } catch (error) {
-            // 如果字体加载明确失败 (例如，字体名称无效且无后备)
-            console.error("Error occurred during font loading:", error);
-            console.warn("Proceeding with potentially default/fallback font rendering.");
-            // 即使失败，我们仍然继续，浏览器可能会使用默认字体
-        } finally {
-            // *** 无论字体加载成功与否，都在此执行后续操作 ***
-            console.log("Performing initial text target update...");
-            updateTextTarget(); // 现在执行文本采样和粒子重置
- 
-            // 根据调试开关决定是否启动动画
-            if (!DEBUG_DRAW_TARGETS_ONLY) { // 确保你的调试开关依然有效
-                animate();      // 启动动画循环
-                console.log("Initialization complete after font check. Animation started.");
-            } else {
-                console.log("Initialization complete after font check. In Target Point Debug Mode.");
-            }
-        }
-    }
- 
-    // 监听窗口大小变化事件
-    window.addEventListener('resize', resizeCanvas);
+			   // --- 初始启动 ---
+			   console.log("Setting up initial state...");
+			   resizeCanvas(); // 首次设置画布尺寸并生成初始文本的粒子
+			   animate();      // 启动动画循环
+			
+			   console.log("Initialization complete. Animation should start.");
  
     // --- 执行异步初始化函数 ---
     initializeAndRun();
