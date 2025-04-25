@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粒子文字效果</title>
+    <!-- 引入 CSS 文件 -->
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* 可以在这里加一些临时的或非常基础的样式 */
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        .controls {
+            position: fixed; /* 固定在屏幕上 */
+            top: 15px;
+            left: 15px;
+            z-index: 10; /* 确保在 canvas 上方 */
+            background-color: rgba(255, 255, 255, 0.1); /* 半透明背景 */
+            padding: 10px;
+            border-radius: 5px;
+            display: flex; /* 让输入框和按钮横排 */
+            align-items: center;
+        }
+        .controls input[type="text"] {
+            padding: 8px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .controls button {
+            padding: 8px 15px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+        }
+         .controls button:hover {
+             background-color: #45a049;
+         }
+    </style>
+</head>
