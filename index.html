@@ -1,58 +1,62 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>粒子文字效果</title>
-    <!-- 引入 CSS 文件 -->
-    <link rel="stylesheet" href="css/style.css">
+    <title>文本粒子效果</title>
     <style>
-        /* 可以在这里加一些临时的或非常基础的样式 */
-        body { margin: 0; overflow: hidden; background-color: #000; }
+        body { margin: 0; overflow: hidden; background-color: #000; display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; }
         canvas { display: block; }
-        .controls {
-            position: fixed; /* 固定在屏幕上 */
-            top: 15px;
-            left: 15px;
-            z-index: 10; /* 确保在 canvas 上方 */
-            background-color: rgba(255, 255, 255, 0.1); /* 半透明背景 */
-            padding: 10px;
-            border-radius: 5px;
-            display: flex; /* 让输入框和按钮横排 */
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(50, 50, 50, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
             align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
-        .controls input[type="text"] {
-            padding: 8px;
-            margin-right: 10px;
-            border: 1px solid #ccc;
-            border-radius: 3px;
+        #controls label {
+            color: #eee;
+            margin-right: 5px;
         }
-        .controls button {
+        #textInput {
+            padding: 8px 12px;
+            border: 1px solid #666;
+            border-radius: 4px;
+            background-color: #f0f0f0;
+            color: #333;
+            min-width: 200px; /* Adjust as needed */
+        }
+        #updateButton {
             padding: 8px 15px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
             border: none;
-            border-radius: 3px;
+            border-radius: 4px;
+            background-color: #4CAF50; /* Green */
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
-         .controls button:hover {
-             background-color: #45a049;
-         }
+        #updateButton:hover {
+            background-color: #45a049;
+        }
+        #updateButton:active {
+            background-color: #3e8e41;
+        }
     </style>
 </head>
 <body>
-
-    <!-- 1. 绘图区域 (Canvas) -->
     <canvas id="particleCanvas"></canvas>
-
-    <!-- 2. 用户输入控件 -->
-    <div class="controls">
-        <input type="text" id="textInput" placeholder="输入文字..." value="请输入">
+    <div id="controls">
+        <label for="textInput">输入文字:</label>
+        <input type="text" id="textInput" placeholder="请输入">
         <button id="updateButton">生成</button>
     </div>
 
-    <!-- 3. 引入 JavaScript 文件 (放在 body 结束前) -->
-    <script src="js/script.js"></script>
-
+    <script src="script.js"></script>
 </body>
 </html>
